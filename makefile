@@ -14,5 +14,5 @@ clear:
 
 gitCommitAndPush: clear
 	git add .
-	git commit -m $(MESSAGE)
+	git commit -m "$(MESSAGE)"
 	git push -u origin master
