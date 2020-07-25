@@ -10,4 +10,9 @@ all: $(EXECS)
 	g++ --std=c++2a -o $@ $< -lOpenCL
 
 clear:
-	rm $(EXECS)
+	rm -f $(EXECS)
+
+gitCommitAndPush: clear
+	git add .
+	git commit -m $(MESSAGE)
+	git push -u origin master
