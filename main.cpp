@@ -11,31 +11,27 @@ int main(){
 
 	myfcl::Context context;
 	
-	std::vector<int> vec1;
-	std::vector<int> vec2;
-	std::vector<int> vec3;
-	std::vector<int> vec4;
+	
+	myfcl::Buffer<int> buf1{context, VEC_SIZE};
+	myfcl::Buffer<int> buf2{context, VEC_SIZE};
+	myfcl::Buffer<int> buf3{context, VEC_SIZE};
+	myfcl::Buffer<int> buf4{context, VEC_SIZE};
 
 	for(int i = 0; i < VEC_SIZE; i++){
-		vec1.emplace_back(rand()%100);
-		vec2.emplace_back(rand()%100);
+		buf1[i] = rand()%100;
+		buf2[i] = rand()%100;
 	}
-	myfcl::Buffer& buf1 = context.createBuffer(VEC_SIZE  * sizeof(int), CL_MEM_READ_ONLY);
-	myfcl::Buffer& buf2 = context.createBuffer(VEC_SIZE  * sizeof(int), CL_MEM_READ_ONLY);
-	myfcl::Buffer& buf3 = context.createBuffer(VEC_SIZE  * sizeof(int), CL_MEM_WRITE_ONLY);
-	myfcl::Buffer& buf4 = context.createBuffer(VEC_SIZE  * sizeof(int), CL_MEM_WRITE_ONLY);
-
-	myfcl::Queue const& queue = context.createQueue();
 
 
-	context.copy(vec1, buf1, queue);
+	myfcl::Queue queue{context};
 
 
-	context.copy(vec2, buf2, queue);
+	queue.addTask(new myfcl::Write{buf1});
+	queue.addTask(new myfcl::Write{buf2});
 
-	myfcl::Program const& prog_vec = context.createProgram("vector_add_kernel.cl");
-	myfcl::Kernel const& vec_add = context.createKernel(prog_vec, "vector_add");
-	myfcl::Kernel const& vec_diff = context.createKernel(prog_vec, "vector_diff");
+	myfcl::Program prog_vec{context, "vector_add_kernel.cl"};
+	myfcl::Kernel vec_add{prog_vec, "vector_add"};
+	myfcl::Kernel vec_diff{prog_vec, "vector_diff"};
 
 
 
@@ -48,28 +44,19 @@ int main(){
 	vec_diff.addArgument(2, &buf4.buffer());
 
 
-	context.execute(vec_add,{64}, {VEC_SIZE}, queue);
+	queue.addTask(new myfcl::Execute{vec_add, {64}, {VEC_SIZE}});
 
-	context.copy(buf3, vec3, queue);
-	context.copy(vec3, buf1, queue);
-	
-	context.execute(vec_diff,{64}, {VEC_SIZE}, queue);
+	queue.addTask(new myfcl::Read{buf3});
 
-
-	context.copy(buf4, vec4, queue);
-
-/*	for(int i = 0; i < VEC_SIZE; i++){
-		std::cout << vec1[i] << " + " << vec2[i] << " = " << vec3[i] << std::endl;
-	}
+	queue.execute();
 
 	for(int i = 0; i < VEC_SIZE; i++){
-		std::cout << vec3[i] << " - " << vec2[i] << " = " << vec4[i] << " = " << vec1[i] << std::endl;
+		std::cout << buf1[i] << " + " << buf2[i] << " = " << buf3[i] << std::endl;
 	}
 
-*/
 	//Matrix multiplication
 
-	
+#if 0	
 	struct matrix_t{
 		std::vector<int> mat;
 		int x, y;
@@ -118,9 +105,9 @@ int main(){
 	std::chrono::duration<double> fs = check2 - check1;
 	
 	std::cout << fs.count() << " seconds elapsed" << std::endl;
-/*
+
 	
-	CPU multiplying test (~22 seconds)
+//	CPU multiplying test (~22 seconds)
 
 	check1 = std::chrono::high_resolution_clock::now();
 	for(int row = 0; row < 1024; row++)
@@ -136,8 +123,8 @@ int main(){
 	fs = check2 - check1;
 
 	std::cout << fs.count() << " seconds elapsed" << std::endl;
-*/
 
+#endif
 	std::cout << "Done!" << std::endl;
 	std::cout << std::endl;
 }

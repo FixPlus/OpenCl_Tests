@@ -85,282 +85,12 @@ public:
 	virtual ~Platform(){};
 };
 
-class Queue {
-	cl_command_queue queue_;
-	bool taken = false;
-public:
-	Queue(cl_context ct, cl_device_id device, cl_command_queue_properties properties = 0){
-		cl_int ret;
-		queue_ = clCreateCommandQueue(ct, device, properties, &ret);
-		CHECK_ERR(ret, clCreateCommandQueue);
-	}
-
-	Queue(Queue const& another) = delete;
-
-	Queue const& operator=(Queue const& another) = delete;
-
-	Queue(Queue&& another){
-		queue_ = another.queue_;
-		another.taken = true;
-	};
-
-	Queue const& operator=(Queue&& another){
-		queue_ = another.queue_;
-		another.taken = true;
-		return *this;
-
-	};
-
-
-	cl_command_queue queue() const{
-		return queue_;
-	}
-	virtual ~Queue(){
-		if(!taken){
-			clFlush(queue_);
-			clFinish(queue_);		
-		}
-	}
-
-};
-
-class Buffer {
-	cl_mem buffer_;
-	size_t size_;
-	cl_mem_flags flags_;
-
-	bool taken = false;
-public:
-	Buffer(cl_context ct, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE): flags_(flags), size_(size){
-		cl_int ret;
-		buffer_ = clCreateBuffer(ct, flags, size, NULL, &ret);
-		CHECK_ERR(ret, clCreateBuffer);
-	}
-
-	Buffer(Buffer const& another) = delete;
-
-	Buffer const& operator=(Buffer const& another) = delete;
-
-	Buffer(Buffer&& another){
-		buffer_ = another.buffer_;
-		size_ = another.size_;
-		flags_ = another.flags_;
-		another.taken = true;
-	};
-
-	Buffer const& operator=(Buffer&& another){
-		buffer_ = another.buffer_;
-		another.taken = true;
-		return *this;
-
-	};
-
-	size_t size() const{
-		return size_;
-	}
-
-	cl_mem& buffer() {
-		return buffer_;
-	};
-
-	virtual ~Buffer(){
-		if(!taken){
-			//std::cout << "Helmlo" << std::endl;
-			clReleaseMemObject(buffer_);
-		}
-	};
-};
-
-enum { MAX_SOURCEFILE_LENGTH = 10000};
-
-class Program{
-	cl_program program_;
-	bool taken = false;
-public:
-
-	Program(Program const& another) = delete;
-
-	Program const& operator=(Program const& another) = delete;
-
-	Program(Program&& another){
-		program_ = another.program_;
-		another.taken = true;
-	};
-
-	Program const& operator=(Program&& another){
-		program_ = another.program_;
-		another.taken = true;
-		return *this;
-
-	};
-
-
-	Program(cl_context ct, const char* file_path, const cl_device_id* devices, cl_uint num_devices){
-		std::cout << "Building programm" << std::endl;
-		std::fstream prog_file(file_path);
-		if(!prog_file.good()){
-			std::stringstream ss;
-			ss << "Program file " << file_path << " cannot be opened"; 
-			throw(Exception(ss.str().c_str()));
-		}
-
-		std::string prog_source_code;
-		prog_source_code.resize(MAX_SOURCEFILE_LENGTH + 1);
-		prog_file.read(prog_source_code.data(), MAX_SOURCEFILE_LENGTH);
-
-		prog_source_code.data()[MAX_SOURCEFILE_LENGTH] = '\0';
-
-		cl_int ret;
-		
-		const char* code = prog_source_code.data();
-		
-		program_ = clCreateProgramWithSource(ct, 1, &code, NULL, &ret);
-		CHECK_ERR(ret, clCreateProgramWithSource);
-
-		ret = clBuildProgram(program_, num_devices, devices, NULL, NULL, NULL);
-		CHECK_ERR(ret, clBuildProgram);
-	}
-
-	cl_program program() const{
-		return program_;
-	}
-
-	virtual ~Program(){
-		if(!taken)
-			clReleaseProgram(program_);
-	}
-};
-
-
-class NDRange // Copied from CL/cl2.hpp
-{
-private:
-    size_t sizes_[3];
-    cl_uint dimensions_;
-
-public:
-    //! \brief Default constructor - resulting range has zero dimensions.
-    NDRange()
-        : dimensions_(0)
-    {
-        sizes_[0] = 0;
-        sizes_[1] = 0;
-        sizes_[2] = 0;
-    }
-
-    //! \brief Constructs one-dimensional range.
-    NDRange(size_t size0)
-        : dimensions_(1)
-    {
-        sizes_[0] = size0;
-        sizes_[1] = 1;
-        sizes_[2] = 1;
-    }
-
-    //! \brief Constructs two-dimensional range.
-    NDRange(size_t size0, size_t size1)
-        : dimensions_(2)
-    {
-        sizes_[0] = size0;
-        sizes_[1] = size1;
-        sizes_[2] = 1;
-    }
-
-    //! \brief Constructs three-dimensional range.
-    NDRange(size_t size0, size_t size1, size_t size2)
-        : dimensions_(3)
-    {
-        sizes_[0] = size0;
-        sizes_[1] = size1;
-        sizes_[2] = size2;
-    }
-
-    /*! \brief Conversion operator to const size_type *.
-     *  
-     *  \returns a pointer to the size of the first dimension.
-     */
-    operator const size_t*() const { 
-        return sizes_; 
-    }
-
-    //! \brief Queries the number of dimensions in the range.
-    size_t dimensions() const 
-    { 
-        return dimensions_; 
-    }
-
-    //! \brief Returns the size of the object in bytes based on the
-    // runtime number of dimensions
-    size_t size() const
-    {
-        return dimensions_*sizeof(size_t);
-    }
-
-    size_t* get()
-    {
-        return sizes_;
-    }
-    
-    const size_t* get() const
-    {
-        return sizes_;
-    }
-};
-
-
-
-class Kernel{
-	cl_kernel kernel_;
-	bool taken = false;
-public:
-
-	Kernel(Kernel const& another) = delete;
-
-	Kernel const& operator=(Kernel const& another) = delete;
-
-	Kernel(Kernel&& another){
-		kernel_ = another.kernel_;
-		another.taken = true;
-	};
-
-	Kernel const& operator=(Kernel&& another){
-		kernel_ = another.kernel_;
-		another.taken = true;
-		return *this;
-
-	};
-
-	template<typename T>
-	void addArgument(cl_uint index, T* arg) const{
-		cl_int ret = clSetKernelArg(kernel_, index, sizeof(T), reinterpret_cast<void*>(arg));
-		CHECK_ERR(ret, clSetKernelArg);
-	}
-
-	Kernel(cl_program prog, const char* name){
-		cl_int ret;
-		kernel_ = clCreateKernel(prog, name, &ret);
-		CHECK_ERR(ret, clCreateKernel);
-
-	}
-
-	cl_kernel kernel() const{
-		return kernel_;
-	}
-	~Kernel(){
-		if(!taken)
-			clReleaseKernel(kernel_);
-	}
-};
 
 class Context: public Platform{
+
 	cl_context ct;
 	std::vector<cl_device_id> devices;
-	std::list<Queue> queues;
-	std::list<Buffer> buffers;
-	std::list<Program> programs;
-	std::list<Kernel> kernels;
 
-	cl_uint active_queue_id = 0;
 public:
 
 	void printDevicesInfo() const{
@@ -444,65 +174,409 @@ public:
 
         CHECK_ERR(ret, clCreateContext);
 
- 		buffers.emplace_back(ct, 1);
-       std::cout << "Context created with " << devices.size() << " devices avaible"<< std::endl;
+        std::cout << "Context created with " << devices.size() << " devices avaible"<< std::endl;
 	};
 
 
-	Buffer& createBuffer(size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE){
-		return buffers.emplace_back(ct, size, flags);
+	cl_context context() const{
+		return ct;
 	}
 
-	Queue const& createQueue(int dev_id = 0){
-		return queues.emplace_back(ct, devices[dev_id]);
+	cl_device_id getDevice() const{
+		return devices[0];
 	}
 
-	Program const& createProgram(const char* filename){
-		return programs.emplace_back(ct, filename, devices.data(), devices.size());
+	cl_device_id const* getDevices() const{
+		return devices.data();
 	}
 
-	Kernel const& createKernel(Program const& program, const char* name){
-		return kernels.emplace_back(program.program(), name);
+	cl_uint getNumOfDevices() const{
+		return devices.size();
 	}
 
-	template<typename T>
-	void copy(std::vector<T>& data, Buffer& buf, Queue const& queue, size_t offset = 0){
-
-		size_t data_size = data.size() * sizeof(T);
-
-		if(data_size + offset > buf.size())
-			throw(Exception("Buffer out of range"));
-
-		cl_int ret = clEnqueueWriteBuffer(queue.queue(), buf.buffer(), CL_TRUE, offset, data_size, data.data(), 0, NULL, NULL);
-		CHECK_ERR(ret, clEnqueueWriteBuffer);
-	}
-
-	template<typename T>
-	void copy(Buffer& buf, std::vector<T>& data, Queue const& queue, size_t offset = 0){
-
-		size_t data_size = buf.size();
-		
-		data.resize(data_size/sizeof(T));
-
-		cl_int ret = clEnqueueReadBuffer(queue.queue(), buf.buffer(), CL_TRUE, offset, data_size, data.data(), 0, NULL, NULL);
-		CHECK_ERR(ret, clEnqueueReadBuffer);
-	}
-
-	void execute(Kernel const& kernel, NDRange local, NDRange global, Queue const& queue){
-		cl_int ret = clEnqueueNDRangeKernel(queue.queue(), kernel.kernel(), global.dimensions(), NULL, global.get(), local.get(), 0, NULL, NULL);
-		CHECK_ERR(ret, clEnqueueNDRangeKernel);
-	}
 
 	~Context(){
-		queues.clear();
-		kernels.clear();
-		programs.clear();
-		buffers.clear();
 
 		clReleaseContext(ct);
+	
 	};
 };
 
+
+class Task {
+public:
+
+
+	Task(){};
+	
+	virtual void run(cl_command_queue queue) = 0;
+	virtual ~Task(){};
+};
+
+class Queue {
+
+	cl_command_queue queue_;
+	std::list<Task*> tasks;
+
+public:
+	Queue(Context const& ct, cl_command_queue_properties properties = 0){
+		cl_int ret;
+		queue_ = clCreateCommandQueue(ct.context(), ct.getDevice(), properties, &ret);
+		CHECK_ERR(ret, clCreateCommandQueue);
+	}
+
+	Queue(Queue const& another) = delete;
+
+	Queue const& operator=(Queue const& another) = delete;
+
+#if 0
+	Queue(Queue&& another){
+		queue_ = another.queue_;
+		another.taken = true;
+	};
+
+	Queue const& operator=(Queue&& another){
+		queue_ = another.queue_;
+		another.taken = true;
+		return *this;
+
+	};
+
+#endif
+
+	void execute() {
+		while(!tasks.empty()){
+			Task* task = tasks.back();
+			task->run(queue_);
+			delete(task);
+			tasks.pop_back();
+		}
+	}
+
+	void addTask(Task* task){
+		tasks.push_front(task);
+	}
+
+	cl_command_queue queue() const{
+		return queue_;
+	}
+	virtual ~Queue(){
+		while(!tasks.empty()){
+			delete(tasks.back());
+			tasks.pop_back();			
+		}
+		clFlush(queue_);
+		clFinish(queue_);		
+		
+	}
+
+};
+
+template<typename T>
+class Buffer {
+	
+	//ocl part
+
+	cl_mem buffer_;
+	cl_mem_flags flags_;
+
+	//host part
+
+	std::vector<T> data_;
+
+public:
+
+	Buffer(Context const& ct, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE): flags_(flags), data_(size){
+		
+		cl_int ret;
+		buffer_ = clCreateBuffer(ct.context(), flags, size * sizeof(T), NULL, &ret);
+		CHECK_ERR(ret, clCreateBuffer);
+	
+	}
+
+	Buffer(Buffer const& another) = delete;
+
+	Buffer const& operator=(Buffer const& another) = delete;
+
+#if 0
+	Buffer(Buffer&& another){
+		buffer_ = another.buffer_;
+		size_ = another.size_;
+		flags_ = another.flags_;
+		another.taken = true;
+	};
+
+	Buffer const& operator=(Buffer&& another){
+		buffer_ = another.buffer_;
+		another.taken = true;
+		return *this;
+
+	};
+
+#endif
+
+	size_t size() const{
+		return data_.size() * sizeof(T);
+	}
+
+	cl_mem& buffer() {
+		return buffer_;
+	};
+
+	T* hostData() {
+		return data_.data();
+	}
+
+	T& operator[](size_t index){
+		if(index > data_.size()){
+			std::stringstream ss;
+			ss << "Index " << index << " is out of buffer range(" << data_.size() << ")"; 
+			throw(std::out_of_range{ss.str()});
+		}
+
+		return data_[index];
+	}
+
+	virtual ~Buffer(){
+		clReleaseMemObject(buffer_);
+	};
+};
+
+enum { MAX_SOURCEFILE_LENGTH = 10000};
+
+class Program{
+
+	cl_program program_;
+
+public:
+
+	Program(Program const& another) = delete;
+
+	Program const& operator=(Program const& another) = delete;
+
+#if 0
+
+	Program(Program&& another){
+		program_ = another.program_;
+		another.taken = true;
+	};
+
+	Program const& operator=(Program&& another){
+		program_ = another.program_;
+		another.taken = true;
+		return *this;
+
+	};
+
+#endif
+
+	Program(Context const& ct, const char* file_path){
+		std::cout << "Building programm" << std::endl;
+		std::fstream prog_file(file_path);
+		if(!prog_file.good()){
+			std::stringstream ss;
+			ss << "Program file " << file_path << " cannot be opened"; 
+			throw(Exception(ss.str().c_str()));
+		}
+
+		std::string prog_source_code;
+		prog_source_code.resize(MAX_SOURCEFILE_LENGTH + 1);
+		prog_file.read(prog_source_code.data(), MAX_SOURCEFILE_LENGTH);
+
+		prog_source_code.data()[MAX_SOURCEFILE_LENGTH] = '\0';
+
+		cl_int ret;
+		
+		const char* code = prog_source_code.data();
+		
+		program_ = clCreateProgramWithSource(ct.context(), 1, &code, NULL, &ret);
+		CHECK_ERR(ret, clCreateProgramWithSource);
+
+		ret = clBuildProgram(program_, ct.getNumOfDevices(), ct.getDevices(), NULL, NULL, NULL);
+		CHECK_ERR(ret, clBuildProgram);
+	}
+
+	cl_program program() const{
+		return program_;
+	}
+
+	virtual ~Program(){
+		clReleaseProgram(program_);
+	}
+};
+
+
+class NDRange // Copied from CL/cl2.hpp
+{
+private:
+    size_t sizes_[3];
+    cl_uint dimensions_;
+
+public:
+    //! \brief Default constructor - resulting range has zero dimensions.
+    NDRange()
+        : dimensions_(0)
+    {
+        sizes_[0] = 0;
+        sizes_[1] = 0;
+        sizes_[2] = 0;
+    }
+
+    //! \brief Constructs one-dimensional range.
+    NDRange(size_t size0)
+        : dimensions_(1)
+    {
+        sizes_[0] = size0;
+        sizes_[1] = 1;
+        sizes_[2] = 1;
+    }
+
+    //! \brief Constructs two-dimensional range.
+    NDRange(size_t size0, size_t size1)
+        : dimensions_(2)
+    {
+        sizes_[0] = size0;
+        sizes_[1] = size1;
+        sizes_[2] = 1;
+    }
+
+    //! \brief Constructs three-dimensional range.
+    NDRange(size_t size0, size_t size1, size_t size2)
+        : dimensions_(3)
+    {
+        sizes_[0] = size0;
+        sizes_[1] = size1;
+        sizes_[2] = size2;
+    }
+
+    /*! \brief Conversion operator to const size_type *.
+     *  
+     *  \returns a pointer to the size of the first dimension.
+     */
+    operator const size_t*() const { 
+        return sizes_; 
+    }
+
+    //! \brief Queries the number of dimensions in the range.
+    size_t dimensions() const 
+    { 
+        return dimensions_; 
+    }
+
+    //! \brief Returns the size of the object in bytes based on the
+    // runtime number of dimensions
+    size_t size() const
+    {
+        return dimensions_*sizeof(size_t);
+    }
+
+    size_t* get()
+    {
+        return sizes_;
+    }
+    
+    const size_t* get() const
+    {
+        return sizes_;
+    }
+};
+
+
+
+class Kernel{
+
+	cl_kernel kernel_;
+
+public:
+
+	Kernel(Kernel const& another) = delete;
+
+	Kernel const& operator=(Kernel const& another) = delete;
+
+#if 0
+
+	Kernel(Kernel&& another){
+		kernel_ = another.kernel_;
+		another.taken = true;
+	};
+
+	Kernel const& operator=(Kernel&& another){
+		kernel_ = another.kernel_;
+		another.taken = true;
+		return *this;
+
+	};
+
+#endif
+
+	template<typename T>
+	void addArgument(cl_uint index, T* arg) const{
+		cl_int ret = clSetKernelArg(kernel_, index, sizeof(T), reinterpret_cast<void*>(arg));
+		CHECK_ERR(ret, clSetKernelArg);
+	}
+
+	Kernel(Program const& prog, const char* name){
+		cl_int ret;
+		kernel_ = clCreateKernel(prog.program(), name, &ret);
+		CHECK_ERR(ret, clCreateKernel);
+
+	}
+
+	cl_kernel kernel() const{
+		return kernel_;
+	}
+	~Kernel(){
+		clReleaseKernel(kernel_);
+	}
+};
+
+template<typename T>
+class Read: public Task{
+	Buffer<T>& buf_;
+public:
+	Read(Buffer<T>& buf): buf_(buf) {
+	};
+
+	void run(cl_command_queue queue) override{
+		cl_int ret = clEnqueueReadBuffer(queue, buf_.buffer(), CL_TRUE, 0, buf_.size(), buf_.hostData(), 0, NULL, NULL);
+		CHECK_ERR(ret, clEnqueueReadBuffer);
+	}
+
+	~Read(){};
+};
+
+template<typename T>
+class Write: public Task{
+	Buffer<T>& buf_;
+public:
+	Write(Buffer<T>& buf): buf_(buf) {
+	};
+
+	void run(cl_command_queue queue) override{
+		cl_int ret = clEnqueueWriteBuffer(queue, buf_.buffer(), CL_TRUE, 0, buf_.size(), buf_.hostData(), 0, NULL, NULL);
+		CHECK_ERR(ret, clEnqueueWriteBuffer);
+	}
+	~Write(){};
+};
+
+
+class Execute: public Task{
+	
+	Kernel& kernel_;
+	NDRange local_, global_;
+
+public:
+	Execute(Kernel& kernel, NDRange local, NDRange global): kernel_(kernel), local_(local), global_(global) {
+	};
+
+	void run(cl_command_queue queue) override{
+		cl_int ret = clEnqueueNDRangeKernel(queue, kernel_.kernel(), global_.dimensions(), NULL, global_.get(), local_.get(), 0, NULL, NULL);
+		CHECK_ERR(ret, clEnqueueNDRangeKernel);
+	}
+
+	~Execute(){};
+
+};
 
 
 
