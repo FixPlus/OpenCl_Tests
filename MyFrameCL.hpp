@@ -76,8 +76,8 @@ public:
    			printInfo(platforms[i]);
    		}
 
-   		std::cout << "Choosen platform id: " << platforms[1] << std::endl;  //currently choosing only Intel platform
-   		pid = platforms[1];
+   		std::cout << "Choosen platform id: " << platforms[0] << std::endl;  //currently choosing only Intel platform
+   		pid = platforms[0];
   		
 
 	};
@@ -325,6 +325,14 @@ public:
 
 	T* hostData() {
 		return data_.data();
+	}
+
+	auto hostBeginIt(){
+		return data_.begin();
+	}
+
+	auto hostEndIt(){
+		return data_.end();
 	}
 
 	T& operator[](size_t index){

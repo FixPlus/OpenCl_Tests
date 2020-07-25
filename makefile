@@ -1,7 +1,13 @@
 
 
-all:
-	g++ --std=c++2a main.cpp -lOpenCL -o oclTest
+SOURCES = main.cpp bitonic.cpp
+
+EXECS = $(SOURCES:.cpp=.o)
+
+all: $(EXECS)
+
+.cpp.o:
+	g++ --std=c++2a -o $@ $< -lOpenCL
 
 clear:
-	rm oclTest
+	rm $(EXECS)

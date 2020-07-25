@@ -6,12 +6,54 @@
 
 enum{VEC_SIZE = 1024};
 
+
+
+void bitonic_sort(myfcl::Context const& context, std::vector<int>& array) {
+	unsigned int N = array.size();
+	unsigned int logN = 0;
+	while(N != 0 && logN < 10) N = N >> 1u, logN++; 
+	if(1u << logN != array.size())
+		throw(std::logic_error("Array size must be presisely 2^N"));
+
+	N = array.size();
+
+	myfcl::Buffer<int> buf{context, N};
+
+	std::copy(array.begin(), array.end(), buf.hostBeginIt());
+
+	myfcl::Program prog{context, "bitonic_sort.cl"};
+	myfcl::Kernel sort{prog, "sort"};
+
+	myfcl::Queue queue{context};
+	
+	cl_uint i = 0,j = 0;
+
+	sort.addArgument(0, &buf.buffer());
+	sort.addArgument(1, &i);
+	sort.addArgument(2, &j);
+
+	queue.addTask(new myfcl::Write{buf});
+
+//	for(i = 0; i < logN; i++)
+//		for(j = 0; j <= i; j++){
+			queue.addTask(new myfcl::Execute{sort,{64}, {N / 2}});
+			queue.execute();
+//		}
+	
+	queue.addTask(new myfcl::Read{buf});
+	queue.execute();
+
+	std::copy(buf.hostBeginIt(), buf.hostEndIt(), array.begin());
+
+}
+
 int main(){
 
 
 	myfcl::Context context;
-	
-	
+	std::vector<int> arr(1024);
+	bitonic_sort(context, arr);
+	std::cout << arr[0] << std::endl;
 	myfcl::Buffer<int> buf1{context, VEC_SIZE};
 	myfcl::Buffer<int> buf2{context, VEC_SIZE};
 	myfcl::Buffer<int> buf3{context, VEC_SIZE};
@@ -50,9 +92,9 @@ int main(){
 
 	queue.execute();
 
-	for(int i = 0; i < VEC_SIZE; i++){
-		std::cout << buf1[i] << " + " << buf2[i] << " = " << buf3[i] << std::endl;
-	}
+//	for(int i = 0; i < VEC_SIZE; i++){
+//		std::cout << buf1[i] << " + " << buf2[i] << " = " << buf3[i] << std::endl;
+//	}
 
 	//Matrix multiplication
 
