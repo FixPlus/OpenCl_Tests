@@ -1,6 +1,6 @@
 
 
-SOURCES = main.cpp bitonic.cpp matrices.cpp
+SOURCES = vecadd.cpp bitonic.cpp matrices.cpp
 
 EXECS = $(SOURCES:.cpp=.o)
 
@@ -19,4 +19,5 @@ gitCommit: clear
 gitPush:
 	git push -u origin master
 
-gitCommitAndPush: gitCommit gitPush
+gitCommitAndPush: gitCommit 
+	gitPush

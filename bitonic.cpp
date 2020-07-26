@@ -104,53 +104,65 @@ void bitonic_sort(myfcl::Context const& context, std::vector<int>& array, SortDi
 
 int main(){
 
-	myfcl::Context context;
-	
-	std::vector<int> arr(VEC_SIZE);
-	std::vector<int> arr2(VEC_SIZE);
+	try{
+		myfcl::Context context;
+		
+		std::vector<int> arr(VEC_SIZE);
+		std::vector<int> arr2(VEC_SIZE);
 
-	for(int i = 0; i < VEC_SIZE; i++){
-		arr[i] = rand() % 10000;
+		for(int i = 0; i < VEC_SIZE; i++){
+			arr[i] = rand() % 10000;
+		}
+
+		std::copy(arr.begin(), arr.end(), arr2.begin());
+		
+
+
+
+		std::cout << "Sorting array of " << arr.size() << " elements using GPU..." << std::endl;
+
+		auto start = std::chrono::high_resolution_clock::now();
+
+		bitonic_sort(context, arr, SD_UP, EP_OCL);
+		
+		auto finish = std::chrono::high_resolution_clock::now();
+		
+		std::chrono::duration<double> fs = finish - start;
+
+		std::cout << "Done!" << std::endl << fs.count() << " seconds elapsed" << std::endl;
+
+		std::cout << "Sorting array of " << arr.size() << " elements using CPU..." << std::endl;
+
+		start = std::chrono::high_resolution_clock::now();
+
+		bitonic_sort(context, arr2, SD_UP, EP_HOST);
+		
+		finish = std::chrono::high_resolution_clock::now();
+		
+		fs = finish - start;
+
+		std::cout << "Done!" << std::endl << fs.count() << " seconds elapsed" << std::endl;
+
+		requireSorted(arr, SD_UP);
+		requireSorted(arr2, SD_UP);
+
+
+
+	#ifdef PRINT_SORTED
+		for(int i = 0; i < VEC_SIZE; i++){
+			std::cout << "arr[" << i << "] = " << arr[i] << std::endl;
+		}
+	#endif
+
+	}
+	catch(myfcl::Exception e){
+		std::cerr << "ERROR: " << e.what() << " (myfcl::Exception)" << std::endl;
+		return -1;
+	}
+	catch(std::logic_error e){
+		std::cerr << "ERROR: " << e.what() << " (std::logic_error)" << std::endl;
+		return -1;
 	}
 
-	std::copy(arr.begin(), arr.end(), arr2.begin());
-	
-
-
-
-	std::cout << "Sorting array of " << arr.size() << " elements using GPU..." << std::endl;
-
-	auto start = std::chrono::high_resolution_clock::now();
-
-	bitonic_sort(context, arr, SD_UP, EP_OCL);
-	
-	auto finish = std::chrono::high_resolution_clock::now();
-	
-	std::chrono::duration<double> fs = finish - start;
-
-	std::cout << "Done!" << std::endl << fs.count() << " seconds elapsed" << std::endl;
-
-	std::cout << "Sorting array of " << arr.size() << " elements using CPU..." << std::endl;
-
-	start = std::chrono::high_resolution_clock::now();
-
-	bitonic_sort(context, arr2, SD_UP, EP_HOST);
-	
-	finish = std::chrono::high_resolution_clock::now();
-	
-	fs = finish - start;
-
-	std::cout << "Done!" << std::endl << fs.count() << " seconds elapsed" << std::endl;
-
-	requireSorted(arr, SD_UP);
-	requireSorted(arr2, SD_UP);
-
-
-
-#ifdef PRINT_SORTED
-	for(int i = 0; i < VEC_SIZE; i++){
-		std::cout << "arr[" << i << "] = " << arr[i] << std::endl;
-	}
-#endif
 
 }

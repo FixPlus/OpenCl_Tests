@@ -34,20 +34,11 @@ __kernel void matrix_transpose(
 }
 
 
-
-void swap_rows(__global float* A, int X, int row1, int row2){
-	for(int i = 0; i < X; i++){
-		float temp = A[row1 * X + i];
-		A[row1 * X + i] = A[row2 * X + i];
-		A[row2 * X + i] = temp;
-	}
-}
-
 //Following kernels is used to perform gaussian method of calculation of inverse matrix
 
 
 
-__kernel void matrix_simplify_column( // Expects Both A and B matrices be squared and A matrix have a [COLUMN, COLUMN] unit be equal to 1 
+__kernel void matrix_simplify_column( // Expects Both A and B matrices be squared and same size
 	__global float* A, __global float* B, int SIZE, int COLUMN, __global int* err){
 	
 	int id = get_global_id(0);
