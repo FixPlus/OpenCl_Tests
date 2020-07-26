@@ -4,6 +4,16 @@
 #include <ctime>
 #include <chrono>
 
+/*
+	
+	First tests of OCL
+
+	vector addition using GPU
+
+	
+*/
+
+
 enum{VEC_SIZE = 1024};
 
 int main(){

@@ -1,12 +1,7 @@
 
- 	
-int cmpUp(int a, int b){
-	return a < b;
-}
 
-int cmpDown(int a, int b){
-	return a > b;
-}
+// I used alternative representation of algorithm given here https://en.wikipedia.org/wiki/Bitonic_sorter
+ 	
 
 void sort(__global int* arr, int i, int j, bool up){
 	unsigned int id = get_global_id(0);

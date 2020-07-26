@@ -2,8 +2,21 @@
 #include <cstdlib>
 #include <ctime>
 
+/* 
+	matrices.cpp 
+	
+	Runs tests of matrices.cl kernels
+	
+	
+
+*/
+
+
+
 template<typename T>
 class Matrix{
+
+	// 2D matrix container adapter
 
 	using container = std::vector<T>;
 	
@@ -95,6 +108,8 @@ public:
 		for(auto&& i: data_)
 			i = static_cast<T>(0);
 	}
+
+
 	void swapRows(size_t row1, size_t row2){
 		if(row1 > y_ || row2 > y_)
 			throw(std::out_of_range("Matrix index out of range"));
@@ -104,6 +119,8 @@ public:
 
 		std::swap_ranges(data_.begin() + row1 * x_, data_.begin() + (row1 + 1) * x_, data_.begin() + row2 * x_);
 	}
+
+
 	void print(){
 		for(int j = 0; j < y_; j++){
 			for(int i = 0; i < x_; i++)
@@ -115,6 +132,9 @@ public:
 
 template<typename T>
 Matrix<T> getEMatrix(size_t size){
+
+	//Creates diag(1,1...1) matrix of given size
+
 	Matrix<T> ret{size, size};
 	
 	ret.setNull();
@@ -127,18 +147,25 @@ Matrix<T> getEMatrix(size_t size){
 
 template<typename T>
 void require_squared(Matrix<T> const& mat){
+
+	// Ensures mat to have equal dimensions
+
 	if(mat.x() != mat.y())
 		throw(std::logic_error("Square matrix required"));
 }
 
 template<typename T>
 void require_E(Matrix<T> const& mat){
+
+	// Ensures mat to have diag(1,1...1) form
+
 	try{
 		require_squared(mat);
 	}
 	catch(std::logic_error e){
 		throw(std::logic_error{"Matrix required to be E, but is not squared"});
 	}
+
 	for(int i = 0; i < mat.x(); i++)
 		for(int j = 0; j < mat.y(); j++){
 			if((i == j && mat[j][i] != static_cast<T>(1)) || (i != j && mat[j][i] != static_cast<T>(0)))
@@ -166,7 +193,10 @@ void require_E<float>(Matrix<float> const& mat){
 }
 
 
-Matrix<float> mat_reverse(Matrix<float> const& mat, myfcl::Context context){
+Matrix<float> mat_reverse(Matrix<float> const& mat, myfcl::Context context){ 
+
+	//performs matrix reverse by gaussian method using OCL context
+
 	require_squared(mat);
 
 	Matrix<float> temp = mat;
@@ -205,8 +235,11 @@ Matrix<float> mat_reverse(Matrix<float> const& mat, myfcl::Context context){
 		queue.addTask(new myfcl::Read{errBuf});
 		queue.execute();
 
-		if(errBuf.begin()[0] == -1)
-			throw(std::logic_error{"Matrix cant be reversed(det == 0)"});
+		if(errBuf.begin()[0] == -1)  
+
+			// Matrix is discovered to have null determinant
+			
+			throw(std::logic_error{"Matrix can't be reversed(det == 0)"});
 	}
 
 	queue.addTask(new myfcl::Read{buf2});
@@ -232,7 +265,11 @@ struct mat_mult_kernel<int>{
 
 
 template<typename T>
-Matrix<T> mat_mult(Matrix<T>& mat1, Matrix<T>& mat2, myfcl::Context context){
+Matrix<T> mat_mult(Matrix<T>& mat1, Matrix<T>& mat2, myfcl::Context context){ 
+
+	//Perform multiplication of 2 matrices using OCL context
+
+
 	srand(time(NULL));
 	Matrix<T> ret{mat1.x(), mat2.y()};
 
@@ -266,7 +303,12 @@ Matrix<T> mat_mult(Matrix<T>& mat1, Matrix<T>& mat2, myfcl::Context context){
 	return ret;
 }
 
-Matrix<int> mat_transpose(Matrix<int>& mat, myfcl::Context context){
+Matrix<int> mat_transpose(Matrix<int>& mat, myfcl::Context context){ 
+	
+
+	//Perform matrix transpose using OCL context
+	
+
 	Matrix<int> ret{mat.y(), mat.x()};
 
 	myfcl::Buffer<int> buf1{context, &mat.data()};
@@ -297,7 +339,12 @@ Matrix<int> mat_transpose(Matrix<int>& mat, myfcl::Context context){
 }
 
 template<typename T>
-void require_transposed(Matrix<T>& mat1, Matrix<T>& mat2){
+void require_transposed(Matrix<T>& mat1, Matrix<T>& mat2){ 
+
+	
+	//Throws exception if mat1 and mat2 are not related as transposed form of each other
+	
+
 	if(mat1.x() != mat2.y() || mat1.y() != mat2.x())
 		throw(std::logic_error{"ERROR: Matrices sizes are incompatible"});
 

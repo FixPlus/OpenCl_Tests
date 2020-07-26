@@ -1,8 +1,15 @@
-
-
 #include "MyFrameCL.hpp"
 #include <cstdlib>
 #include <chrono>
+
+/*
+	bitonic.cpp
+
+	Run tests of bitonic sort algorithm using OCL
+
+
+*/
+
 
 constexpr size_t VEC_SIZE = 1u << 20;
 
