@@ -54,7 +54,6 @@ __kernel void matrix_simplify_column( // Expects Both A and B matrices be square
 
 
 	if(id == 0 && A[COLUMN * SIZE + COLUMN] == 0){ // one of the cores will check non-null unit of column
-		printf("Haha");
 		int i;
 		for(i = COLUMN + 1; i < SIZE; i++)
 			if(A[i * SIZE + COLUMN] != 0)
@@ -76,7 +75,6 @@ __kernel void matrix_simplify_column( // Expects Both A and B matrices be square
 	
 	//if ok -> performing a parallel swap
 	if(err[0] != -2){
-		printf("kek");
 		int swap_row = err[0];
 		
 
