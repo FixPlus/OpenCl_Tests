@@ -76,8 +76,8 @@ public:
    			printInfo(platforms[i]);
    		}
 
-   		std::cout << "Choosen platform id: " << platforms[0] << std::endl;  //currently choosing only Intel platform
-   		pid = platforms[0];
+   		std::cout << "Choosen platform id: " << platforms[1] << std::endl;  //currently choosing only Intel platform
+   		pid = platforms[1];
   		
 
 	};
@@ -282,14 +282,25 @@ class Buffer {
 
 	//host part
 
-	std::vector<T> data_;
+	std::vector<T>* data_;
+	bool is_extern_data = false;
 
 public:
 
-	Buffer(Context const& ct, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE): flags_(flags), data_(size){
+	Buffer(Context const& ct, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE): 
+												flags_(flags), data_(new std::vector<T>(size)){
 		
 		cl_int ret;
 		buffer_ = clCreateBuffer(ct.context(), flags, size * sizeof(T), NULL, &ret);
+		CHECK_ERR(ret, clCreateBuffer);
+	
+	}
+
+	Buffer(Context const& ct, std::vector<T>* extern_data, cl_mem_flags flags = CL_MEM_READ_WRITE): 
+												flags_(flags), data_(extern_data), is_extern_data(true){
+		
+		cl_int ret;
+		buffer_ = clCreateBuffer(ct.context(), flags, data_->size() * sizeof(T), NULL, &ret);
 		CHECK_ERR(ret, clCreateBuffer);
 	
 	}
@@ -316,7 +327,7 @@ public:
 #endif
 
 	size_t size() const{
-		return data_.size() * sizeof(T);
+		return data_->size() * sizeof(T);
 	}
 
 	cl_mem& buffer() {
@@ -324,29 +335,32 @@ public:
 	};
 
 	T* hostData() {
-		return data_.data();
+		return data_->data();
 	}
 
-	auto hostBeginIt(){
-		return data_.begin();
+	auto begin(){
+		return data_->begin();
 	}
 
-	auto hostEndIt(){
-		return data_.end();
+	auto end(){
+		return data_->end();
 	}
 
 	T& operator[](size_t index){
-		if(index > data_.size()){
+		if(index > data_->size()){
 			std::stringstream ss;
-			ss << "Index " << index << " is out of buffer range(" << data_.size() << ")"; 
+			ss << "Index " << index << " is out of buffer range(" << data_->size() << ")"; 
 			throw(std::out_of_range{ss.str()});
 		}
 
-		return data_[index];
+		return (*data_)[index];
 	}
 
 	virtual ~Buffer(){
 		clReleaseMemObject(buffer_);
+
+		if(!is_extern_data)
+			delete data_;
 	};
 };
 
@@ -379,7 +393,7 @@ public:
 #endif
 
 	Program(Context const& ct, const char* file_path){
-		std::cout << "Building programm" << std::endl;
+		std::cout << "Building programm " << file_path << "..." << std::endl;
 		std::fstream prog_file(file_path);
 		if(!prog_file.good()){
 			std::stringstream ss;
@@ -401,7 +415,21 @@ public:
 		CHECK_ERR(ret, clCreateProgramWithSource);
 
 		ret = clBuildProgram(program_, ct.getNumOfDevices(), ct.getDevices(), NULL, NULL, NULL);
+
+		if(ret != CL_SUCCESS){
+			for(int i = 0; i < ct.getNumOfDevices(); i++){
+				std::string log;
+				log.resize(10000);
+
+				clGetProgramBuildInfo(program_, ct.getDevices()[i], CL_PROGRAM_BUILD_LOG, 10000, log.data(), NULL);
+
+				std::cout << "Programm build failed with following log:" << std::endl << log << std::endl;
+			}
+		}
+		
 		CHECK_ERR(ret, clBuildProgram);
+
+		std::cout << "Programm has been built successfuly" << std::endl;
 	}
 
 	cl_program program() const{

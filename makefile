@@ -1,6 +1,6 @@
 
 
-SOURCES = main.cpp bitonic.cpp
+SOURCES = main.cpp bitonic.cpp matrices.cpp
 
 EXECS = $(SOURCES:.cpp=.o)
 
@@ -12,7 +12,11 @@ all: $(EXECS)
 clear:
 	rm -f $(EXECS)
 
-gitCommitAndPush: clear
+gitCommit: clear
 	git add .
 	git commit -m "$(MESSAGE)"
+
+gitPush:
 	git push -u origin master
+
+gitCommitAndPush: gitCommit gitPush
