@@ -19,7 +19,7 @@ void bitonic_sort(myfcl::Context const& context, std::vector<int>& array) {
 
 	myfcl::Buffer<int> buf{context, N};
 
-	std::copy(array.begin(), array.end(), buf.hostBeginIt());
+	std::copy(array.begin(), array.end(), buf.begin());
 
 	myfcl::Program prog{context, "bitonic_sort.cl"};
 	myfcl::Kernel sort{prog, "sort"};
@@ -43,7 +43,7 @@ void bitonic_sort(myfcl::Context const& context, std::vector<int>& array) {
 	queue.addTask(new myfcl::Read{buf});
 	queue.execute();
 
-	std::copy(buf.hostBeginIt(), buf.hostEndIt(), array.begin());
+	std::copy(buf.begin(), buf.end(), array.begin());
 
 }
 

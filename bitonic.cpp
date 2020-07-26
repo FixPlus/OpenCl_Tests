@@ -61,9 +61,8 @@ void bitonic_sort(myfcl::Context const& context, std::vector<int>& array, SortDi
 	N = array.size();
 
 	if(platform == EP_OCL){
-		myfcl::Buffer<int> buf{context, N};
+		myfcl::Buffer<int> buf{context, &array};
 
-		std::copy(array.begin(), array.end(), buf.hostBeginIt());
 
 		myfcl::Program prog{context, "bitonic_sort.cl"};
 		
@@ -92,7 +91,6 @@ void bitonic_sort(myfcl::Context const& context, std::vector<int>& array, SortDi
 		queue.addTask(new myfcl::Read{buf});
 		queue.execute();
 
-		std::copy(buf.hostBeginIt(), buf.hostEndIt(), array.begin());
 	}
 	else{
 		for(int i = 0; i < logN; i++)

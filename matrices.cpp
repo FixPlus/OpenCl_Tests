@@ -307,14 +307,22 @@ void require_transposed(Matrix<T>& mat1, Matrix<T>& mat2){
 				throw(std::logic_error{"ERROR: Matrices are not transposed properly"});
 }
 
+const int TRANSPOSE_TEST_SIZE = 1024;
+const int REVERSE_TEST_SIZE = 128; // max stable size is ~ 128 
+
+
 int main(){
+	
+	bool err_catched = false;
+
+	try{
+
 	myfcl::Context context;
 
 
 	std::cout << ">Checking matrix transpose" << std::endl;
 	
-
-	Matrix<int> mat{1024};
+	Matrix<int> mat{TRANSPOSE_TEST_SIZE};
 
 	mat.randomize(10);
 
@@ -327,10 +335,10 @@ int main(){
 
 	std::cout << ">Checking matrix reverse and multiplication" << std::endl;
 
-	Matrix<float> matRef{128};
+	Matrix<float> matRef{REVERSE_TEST_SIZE};
 	matRef.randomize(100);
 
-
+	
 	Matrix<float> matRev = mat_reverse(matRef, context);
 
 	Matrix<float> probably_E = mat_mult(matRef, matRev, context);
@@ -338,5 +346,26 @@ int main(){
 	require_E<float>(probably_E);
 
 	std::cout << "Test completed successfully" << std::endl << std::endl;
+	}
+	catch(myfcl::Exception e){
+		std::cerr << "ERROR: " << e.what() << " (myfcl::Exception)" << std::endl;
+		err_catched = true;  
+	}
+	catch(std::out_of_range e){
+		std::cerr << "ERROR: " << e.what() << " (std::out_of_range)" << std::endl;
+		err_catched = true;  
+	}
+	catch(std::logic_error e){
+		std::cerr << "ERROR: " << e.what() << " (std::logic_error)" << std::endl;
+		err_catched = true;  
+	}
 
+	if(err_catched){
+		std::cout << "Tests finished with error" << std::endl;
+		return -1;
+	}
+	else{
+		std::cout << "All tests finished successfully" << std::endl;
+		return 0;
+	}
 }
