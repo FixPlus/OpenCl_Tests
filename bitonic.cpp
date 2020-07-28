@@ -1,7 +1,8 @@
 #include "MyFrameCL.hpp"
 #include <cstdlib>
 #include <chrono>
-
+#include <thread>
+#include <functional>
 /*
 	bitonic.cpp
 
@@ -11,7 +12,7 @@
 */
 
 
-constexpr size_t VEC_SIZE = 1u << 20;
+constexpr size_t VEC_SIZE = 1u << 13;
 
 enum SortDir{SD_UP, SD_DOWN};
 
@@ -91,7 +92,7 @@ void bitonic_sort(myfcl::Context const& context, std::vector<int>& array, SortDi
 			for(j = 0; j <= i; j++){
 				sort.addArgument(1, &i);
 				sort.addArgument(2, &j);
-				queue.addTask(new myfcl::Execute{sort,{8}, {N / 2}});
+				queue.addTask(new myfcl::Execute{sort,{N / 2 > 8 ? 8: N / 2}, {N / 2}});
 				queue.execute();
 			}
 		
@@ -108,51 +109,66 @@ void bitonic_sort(myfcl::Context const& context, std::vector<int>& array, SortDi
 	}
 }
 
+void performTest(std::string context_name, std::vector<int>* arr){
+	
+	std::cout << "Performing " << context_name << " GPU sorting..." << std::endl;	
 
-int main(){
+	myfcl::Context context{context_name.c_str()};
 
+	auto start = std::chrono::high_resolution_clock::now();
+
+	bitonic_sort(context, *arr);
+
+	auto finish = std::chrono::high_resolution_clock::now();
+
+	std::chrono::duration<double> fs = finish - start;
+
+	std::cout << context_name << " finished in " << fs.count() << " seconds" << std::endl;
+}
+
+int main(int argc, char** argv){
+	
+	unsigned logN = 23;
+
+	if(argc == 2){
+		logN = atoi(argv[1]);
+		if(logN > 28){
+			std::cout << "size of 2^" << logN << " is too big" << std::endl;
+			return 0;
+		}
+	}
+
+	size_t VEC_SIZE = 1u << logN; 
+	
+	std::cout << "Running tests with array of " << VEC_SIZE << " elments in" << std::endl;
+	
 	try{
-		myfcl::Context context;
-		
+			
 		std::vector<int> arr(VEC_SIZE);
 		std::vector<int> arr2(VEC_SIZE);
+		std::vector<int> arr3(VEC_SIZE);
 
 		for(int i = 0; i < VEC_SIZE; i++){
-			arr[i] = rand() % 10000;
+			arr[i] = rand();
 		}
 
 		std::copy(arr.begin(), arr.end(), arr2.begin());
+		std::copy(arr.begin(), arr.end(), arr3.begin());
 		
+		std::thread nvidiaTest{performTest, std::string("NVIDIA"), &arr};
+		std::thread intelTest{performTest, std::string("Intel"), &arr2};
 
+		std::sort(arr3.begin(), arr3.end(), [](int a, int b)->bool{ return a < b;});
 
+		nvidiaTest.join();
+		intelTest.join();
 
-		std::cout << "Sorting array of " << arr.size() << " elements using GPU..." << std::endl;
+		requireSorted(arr3, SD_UP);
 
-		auto start = std::chrono::high_resolution_clock::now();
-
-		bitonic_sort(context, arr, SD_UP, EP_OCL);
-		
-		auto finish = std::chrono::high_resolution_clock::now();
-		
-		std::chrono::duration<double> fs = finish - start;
-
-		std::cout << "Done!" << std::endl << fs.count() << " seconds elapsed" << std::endl;
-
-		std::cout << "Sorting array of " << arr.size() << " elements using CPU..." << std::endl;
-
-		start = std::chrono::high_resolution_clock::now();
-
-		bitonic_sort(context, arr2, SD_UP, EP_HOST);
-		
-		finish = std::chrono::high_resolution_clock::now();
-		
-		fs = finish - start;
-
-		std::cout << "Done!" << std::endl << fs.count() << " seconds elapsed" << std::endl;
-
-		requireSorted(arr, SD_UP);
 		requireSorted(arr2, SD_UP);
 
+		requireSorted(arr, SD_UP);
+		
 
 
 	#ifdef PRINT_SORTED

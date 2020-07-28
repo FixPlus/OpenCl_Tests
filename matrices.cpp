@@ -124,7 +124,7 @@ public:
 	void print(){
 		for(int j = 0; j < y_; j++){
 			for(int i = 0; i < x_; i++)
-				std::cout << data_[j * x_ + i] << " ";
+				std::cout << static_cast<int>(data_[j * x_ + i]) << " ";
 			std::cout << std::endl;
 		}
 	}
@@ -173,8 +173,9 @@ void require_E(Matrix<T> const& mat){
 		}
 }
 
-bool flt_eps_equal(float f1, float f2){
-	return abs(f1 - f2) < 0.01f;
+template<typename T>
+bool flt_eps_equal(T f1, T f2){
+	return abs(f1 - f2) < static_cast<T>(0.01f);
 }
 
 template<>
@@ -192,19 +193,38 @@ void require_E<float>(Matrix<float> const& mat){
 		}
 }
 
+template<>
+void require_E<double>(Matrix<double> const& mat){
+	try{
+		require_squared(mat);
+	}
+	catch(std::logic_error e){
+		throw(std::logic_error{"Matrix required to be E, but is not squared"});
+	}
+	for(int i = 0; i < mat.x(); i++)
+		for(int j = 0; j < mat.y(); j++){
+			if((i == j && !flt_eps_equal(mat[j][i],1.0)) || (i != j && !flt_eps_equal(mat[j][i],0.0))){
+				std::stringstream ss;
+				ss << "Matrix required to be E ( mat[" << j << "][" << i << "] = " << mat[j][i] << " )";
+				
+				throw(std::logic_error(ss.str().c_str()));
+			}
+		}
+}
 
-Matrix<float> mat_reverse(Matrix<float> const& mat, myfcl::Context context){ 
+
+Matrix<double> mat_reverse(Matrix<double> const& mat, myfcl::Context context){ 
 
 	//performs matrix reverse by gaussian method using OCL context
 
 	require_squared(mat);
 
-	Matrix<float> temp = mat;
+	Matrix<double> temp = mat;
 
-	Matrix<float> ret = getEMatrix<float>(mat.x());
+	Matrix<double> ret = getEMatrix<double>(mat.x());
 
-	myfcl::Buffer<float> buf1{context, &temp.data()};
-	myfcl::Buffer<float> buf2{context, &ret.data()};
+	myfcl::Buffer<double> buf1{context, &temp.data()};
+	myfcl::Buffer<double> buf2{context, &ret.data()};
 	myfcl::Buffer<int> errBuf{context, 1};
 
 	errBuf.begin()[0] = -2;
@@ -227,7 +247,7 @@ Matrix<float> mat_reverse(Matrix<float> const& mat, myfcl::Context context){
 	queue.addTask(new myfcl::Write{buf2});
 	queue.addTask(new myfcl::Write{errBuf});
 
-	int work_group_size = mat.x() < 8 ? mat.x(): 8;
+	int work_group_size = mat.x() < 256 ? mat.x(): 256;
 
 	for(int i = 0; i < mat.x(); i++){
 		simpl.addArgument(3, &i);
@@ -243,8 +263,10 @@ Matrix<float> mat_reverse(Matrix<float> const& mat, myfcl::Context context){
 	}
 
 	queue.addTask(new myfcl::Read{buf2});
-
+	
 	queue.execute();
+
+
 	return ret;
 }
 
@@ -261,6 +283,11 @@ struct mat_mult_kernel<float>{
 template<>
 struct mat_mult_kernel<int>{
 	static constexpr const char* name = "matrix_multiply";
+};
+
+template<>
+struct mat_mult_kernel<double>{
+	static constexpr const char* name = "matrix_multiply_double";
 };
 
 
@@ -354,45 +381,57 @@ void require_transposed(Matrix<T>& mat1, Matrix<T>& mat2){
 				throw(std::logic_error{"ERROR: Matrices are not transposed properly"});
 }
 
-const int TRANSPOSE_TEST_SIZE = 1024;
-const int REVERSE_TEST_SIZE = 128; // max stable size is ~ 128 
+//const int TRANSPOSE_TEST_SIZE = 1024;
+//const int REVERSE_TEST_SIZE = 128; // max stable size is ~ 128 
 
 
-int main(){
-	
+int main(int argc, char** argv){
+	int TRANSPOSE_TEST_SIZE = 1024, REVERSE_TEST_SIZE = 128;
+
+	for(int i = 0; i < argc; i++){
+		if(i == 1){
+			TRANSPOSE_TEST_SIZE = atoi(argv[i]);
+		}
+
+		if(i == 2){
+			REVERSE_TEST_SIZE = atoi(argv[i]);
+		}
+
+	}
+
+
 	bool err_catched = false;
 
 	try{
 
-	myfcl::Context context;
+		myfcl::Context context{"NVIDIA"};
+
+		std::cout << ">Checking matrix transpose" << std::endl;
+		
+		Matrix<int> mat{TRANSPOSE_TEST_SIZE};
+
+		mat.randomize(10);
+
+		Matrix<int> transpose = mat_transpose(mat, context);
+
+		require_transposed(mat, transpose);
+
+		std::cout << "Test completed successfully" << std::endl << std::endl;
 
 
-	std::cout << ">Checking matrix transpose" << std::endl;
-	
-	Matrix<int> mat{TRANSPOSE_TEST_SIZE};
+		std::cout << ">Checking matrix reverse and multiplication" << std::endl;
 
-	mat.randomize(10);
+		Matrix<double> matRef{REVERSE_TEST_SIZE};
+		matRef.randomize(100);
 
-	Matrix<int> transpose = mat_transpose(mat, context);
+		
+		Matrix<double> matRev = mat_reverse(matRef, context);
 
-	require_transposed(mat, transpose);
+		Matrix<double> probably_E = mat_mult(matRef, matRev, context);
 
-	std::cout << "Test completed successfully" << std::endl << std::endl;
+		require_E<double>(probably_E);
 
-
-	std::cout << ">Checking matrix reverse and multiplication" << std::endl;
-
-	Matrix<float> matRef{REVERSE_TEST_SIZE};
-	matRef.randomize(100);
-
-	
-	Matrix<float> matRev = mat_reverse(matRef, context);
-
-	Matrix<float> probably_E = mat_mult(matRef, matRev, context);
-
-	require_E<float>(probably_E);
-
-	std::cout << "Test completed successfully" << std::endl << std::endl;
+		std::cout << "Test completed successfully" << std::endl << std::endl;
 	}
 	catch(myfcl::Exception e){
 		std::cerr << "ERROR: " << e.what() << " (myfcl::Exception)" << std::endl;

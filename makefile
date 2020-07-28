@@ -1,4 +1,4 @@
-
+DEFINES = 
 
 SOURCES = vecadd.cpp bitonic.cpp matrices.cpp
 
@@ -7,7 +7,7 @@ EXECS = $(SOURCES:.cpp=.o)
 all: $(EXECS)
 
 .cpp.o:
-	g++ --std=c++2a -o $@ $< -lOpenCL
+	g++ --std=c++2a -o $@ $< -lOpenCL $(DEFINES)
 
 clear:
 	rm -f $(EXECS)

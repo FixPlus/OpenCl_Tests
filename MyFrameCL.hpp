@@ -53,7 +53,7 @@ public:
 
 	}
 
-	Platform(){
+	Platform(const char* platform_name){
 		//Getting platforms info
 		cl_uint n_platforms;
    		
@@ -68,17 +68,40 @@ public:
     	ret = clGetPlatformIDs(n_platforms, platforms.data(), NULL);
   		
    		CHECK_ERR(ret, clGetPlatformIDs);
-
+#ifdef SHOW_OCL_INFO
+ 
    		std::cout << "Avaible platforms info:" << std::endl << std::endl;
 
    		for(int i = 0; i < n_platforms; i++){
    			std::cout << "Plat id " << platforms[i] << ":" << std::endl;
    			printInfo(platforms[i]);
    		}
+#endif
 
-   		std::cout << "Choosen platform id: " << platforms[1] << std::endl;  //currently choosing only Intel platform
-   		pid = platforms[1];
-  		
+   		for(int i = 0; i < n_platforms; i++){
+   			std::string plat_name, vendor_name;
+
+   			plat_name.resize(STRING_BUFSIZE);
+   			vendor_name.resize(STRING_BUFSIZE);
+
+	   		ret = clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, plat_name.size(), plat_name.data(), NULL);
+
+			CHECK_ERR(ret, clGetPlatformInfo);
+
+	   		ret = clGetPlatformInfo(platforms[i], CL_PLATFORM_VENDOR, vendor_name.size(), vendor_name.data(), NULL);
+
+			CHECK_ERR(ret, clGetPlatformInfo);
+
+			if(plat_name.starts_with(platform_name) || vendor_name.starts_with(platform_name)){
+   				std::cout << "Choosen platform id: " << plat_name << std::endl;
+				pid = platforms[i];
+				return;
+			}
+
+				
+   		}
+
+   		throw(Exception{"No platform could be choosen"});		
 
 	};
 
@@ -149,7 +172,7 @@ public:
 
 
 	}
-	Context(cl_device_type dtype = CL_DEVICE_TYPE_ALL, int dev_count = 1){
+	Context(const char* platform_name = "Intel", cl_device_type dtype = CL_DEVICE_TYPE_ALL, int dev_count = 1): Platform{platform_name}{
 		std::cout << std::endl << "#Creating context..." << std::endl;
 		std::cout << "Looking for avaible devices on choosen platform..." << std::endl;
 		
@@ -168,7 +191,12 @@ public:
 
         devices.resize(dev_count);
 
+#ifdef SHOW_OCL_INFO
+
         printDevicesInfo();
+
+#endif
+        
         cl_context_properties props[] = {CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(pid), 0};
    		ct = clCreateContext( props, dev_count, devices.data(), NULL, NULL, &ret);
 
